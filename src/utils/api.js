@@ -42,17 +42,61 @@ export const searchNearbyNightShops = async (map, location, radius = 2000) => {
     throw new Error("Google Maps not loaded");
   }
 
-  // Import the new library dynamically
-  const { Place, SearchNearbyRankPreference } =
-    await google.maps.importLibrary("places");
+  // Import the places library dynamically
+  const placesLibrary = await google.maps.importLibrary("places");
+  const { Place, SearchByTextRankPreference, SearchNearbyRankPreference } =
+    placesLibrary;
 
   const allResults = [];
   const seenIds = new Set();
+  let firstError = null;
 
-  // We iterate through keywords. Note: New API handles multiple types better,
-  // but keywords are still best for Belgian "Alimentation" nuances.
-  for (const keyword of SEARCH_KEYWORDS) {
-    const request = {
+  const addPlaces = (places = []) => {
+    places.forEach((place) => {
+      if (!place?.id || seenIds.has(place.id)) return;
+      seenIds.add(place.id);
+      allResults.push(place);
+    });
+  };
+
+  // 1) Keyword-based text search (actual keyword use)
+  if (typeof Place?.searchByText === "function") {
+    for (const keyword of SEARCH_KEYWORDS) {
+      const request = {
+        fields: [
+          "id",
+          "displayName",
+          "formattedAddress",
+          "location",
+          "isOpenNow",
+          "rating",
+          "userRatingCount",
+          "photos",
+        ],
+        textQuery: keyword,
+        locationBias: {
+          circle: {
+            center: location,
+            radius,
+          },
+        },
+        maxResultCount: 20,
+        rankPreference: SearchByTextRankPreference?.DISTANCE,
+      };
+
+      try {
+        const { places } = await Place.searchByText(request);
+        addPlaces(places);
+      } catch (err) {
+        if (!firstError) firstError = err;
+        console.warn(`Text search failed for keyword: ${keyword}`, err);
+      }
+    }
+  }
+
+  // 2) Fallback nearby search by types if text search yields nothing
+  if (!allResults.length && typeof Place?.searchNearby === "function") {
+    const nearbyRequest = {
       fields: [
         "id",
         "displayName",
@@ -65,36 +109,30 @@ export const searchNearbyNightShops = async (map, location, radius = 2000) => {
       ],
       locationRestriction: {
         center: location,
-        radius: radius,
+        radius,
       },
-      includedPrimaryTypes: [
-        "convenience_store",
-        "grocery_store",
-        "liquor_store",
-      ],
+      includedPrimaryTypes: ["convenience_store", "grocery_store", "store"],
       maxResultCount: 20,
-      rankPreference: SearchNearbyRankPreference.DISTANCE,
+      rankPreference: SearchNearbyRankPreference?.DISTANCE,
     };
 
     try {
-      // In 2026, we use the static searchNearby method on the Place class
-      const { places } = await Place.searchNearby(request);
-
-      if (places) {
-        places.forEach((place) => {
-          if (!seenIds.has(place.id)) {
-            seenIds.add(place.id);
-            allResults.push(place);
-          }
-        });
-      }
+      const { places } = await Place.searchNearby(nearbyRequest);
+      addPlaces(places);
     } catch (err) {
-      console.warn(`Search failed for keyword: ${keyword}`, err);
+      if (!firstError) firstError = err;
+      console.warn("Nearby fallback search failed", err);
     }
   }
 
-  // Process and Sort
+  // If all API calls failed, surface the real failure to the UI
+  if (!allResults.length && firstError) {
+    throw firstError;
+  }
+
+  // Process and sort
   return allResults
+    .filter((place) => place?.location)
     .map((place) => ({
       id: place.id,
       name: place.displayName,

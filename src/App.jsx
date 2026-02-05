@@ -46,8 +46,9 @@ function App() {
         if (nearestOpen) setSelectedShop(nearestOpen);
       } catch (err) {
         console.error("Search error:", err);
+        const details = err?.message ? ` (${err.message})` : "";
         setSearchError(
-          "API Error: Ensure 'Places API' is enabled in Google Console.",
+          `Could not load nearby places. Check that Places API is enabled, billing is active, and key restrictions allow Maps JavaScript + Places${details}`,
         );
       } finally {
         setIsSearching(false);
@@ -149,6 +150,7 @@ function App() {
           selectedShop={selectedShop}
           onSelectShop={setSelectedShop}
           isLoading={isSearching}
+          error={searchError}
         />
       </div>
     </APIProvider>

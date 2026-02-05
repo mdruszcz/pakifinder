@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronUp, ChevronDown, List, MapPin } from 'lucide-react';
 import ShopCard from './ShopCard';
 
-const BottomSheet = ({ shops, selectedShop, onSelectShop, onFlagShop, isLoading }) => {
+const BottomSheet = ({ shops, selectedShop, onSelectShop, onFlagShop, isLoading, error }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startY, setStartY] = useState(0);
@@ -113,6 +113,14 @@ const BottomSheet = ({ shops, selectedShop, onSelectShop, onFlagShop, isLoading 
           <div className="flex flex-col items-center justify-center py-12">
             <div className="spinner mb-4" />
             <p className="text-night-400 font-medium">Finding night shops...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <MapPin className="w-12 h-12 text-neon-red mb-4" />
+            <p className="text-white font-display font-bold mb-2">Search failed</p>
+            <p className="text-night-300 text-sm text-center max-w-sm">
+              {error}
+            </p>
           </div>
         ) : shops.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">

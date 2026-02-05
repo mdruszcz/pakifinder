@@ -46,10 +46,8 @@ function App() {
         if (nearestOpen) setSelectedShop(nearestOpen);
       } catch (err) {
         console.error("Search error:", err);
-        const details = err?.message ? ` (${err.message})` : "";
         setSearchError(
           "API Error: Ensure 'Places API' is enabled in Google Console.",
-          `Could not load nearby places. Check that Places API is enabled, billing is active, and key restrictions allow Maps JavaScript + Places${details}`,
         );
       } finally {
         setIsSearching(false);
@@ -75,7 +73,57 @@ function App() {
         isLoading={geoLoading}
       />
     );
-@@ -127,32 +128,33 @@ function App() {
+  }
+
+  // Blunt feedback if you forgot to set the Secret in Replit
+  if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "your_api_key_here") {
+    return (
+      <div className="fixed inset-0 bg-night-900 flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-neon-red font-bold text-2xl mb-4">
+          API KEY MISSING
+        </h1>
+        <p className="text-night-400 mb-4">
+          Paste your key into Replit Secrets as <b>VITE_GOOGLE_MAPS_API_KEY</b>.
+        </p>
+        <code className="p-3 bg-black text-neon-green rounded">
+          InvalidKeyMapError Detection Active
+        </code>
+      </div>
+    );
+  }
+
+  return (
+    <APIProvider
+      apiKey={GOOGLE_MAPS_API_KEY}
+      solutionChannel="GMP_GCC_public_0"
+    >
+      <div className="h-full w-full relative overflow-hidden bg-night-900">
+        <Header
+          onRefresh={() => {
+            refreshLocation();
+            searchShops();
+          }}
+          isLoading={isSearching || geoLoading}
+          shopCount={
+            shops.filter((s) => s.isOpen === true && !s.isFlagged).length
+          }
+        />
+
+        <div className="absolute inset-0">
+          <Map
+            defaultCenter={position}
+            defaultZoom={15}
+            mapId="DEMO_MAP_ID" // REQUIRED for AdvancedMarkers
+            onIdle={handleMapLoad}
+            disableDefaultUI={true}
+          >
+            {/* User Location Marker */}
+            <AdvancedMarker position={position}>
+              <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
+            </AdvancedMarker>
+
+            {/* Night Shop Markers */}
+            {shops.map((shop) => (
               <AdvancedMarker
                 key={shop.id}
                 position={shop.location}
@@ -101,7 +149,6 @@ function App() {
           selectedShop={selectedShop}
           onSelectShop={setSelectedShop}
           isLoading={isSearching}
-          error={searchError}
         />
       </div>
     </APIProvider>
